@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bitácora Vial</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2933">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#f3f4f0;--card:#ffffff;--ink:#14181c;--muted:#5b6670;--line:#d7dbd3;--accent:#f2a900;--accent-ink:#1a1400;--road:#1f2933;--ok:#2f7d4f;--warn:#b5651d;--bad:#b3261e;--chip:#eceee8;--focus:#2563eb}
+@media (prefers-color-scheme:dark){:root{--bg:#111518;--card:#1b2125;--ink:#eef1ee;--muted:#9aa5ad;--line:#2e373d;--road:#0a0d0f;--chip:#263036;--ok:#5fbf86;--warn:#e39a55;--bad:#ef6b62}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+header{position:sticky;top:0;z-index:10;background:var(--road);color:#fff;padding:12px 16px 14px;display:flex;align-items:center;gap:10px}
+header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:repeating-linear-gradient(90deg,var(--accent) 0 30px,transparent 30px 48px)}
+header h1{font-size:18px;margin:0;flex:1;letter-spacing:.2px}
+header h1 small{display:block;font-size:12px;font-weight:400;color:#c9d1d6}
+#btnSync{background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:9px 14px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px}
+#btnSync .n{background:var(--accent-ink);color:var(--accent);border-radius:999px;padding:0 7px;font-size:12px}
+#btnSync.girando{opacity:.7}
+main{padding:16px 16px 96px;max-width:760px;margin:0 auto}
+section.vista{display:none}section.vista.activa{display:block}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:10;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding-bottom:env(safe-area-inset-bottom)}
+nav button{background:none;border:0;color:var(--muted);padding:10px 4px 12px;font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button svg{width:24px;height:24px}
+nav button.activo{color:var(--ink)}
+nav button.activo svg{color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+h2{font-size:20px;margin:4px 0 14px}
+h3{font-size:15px;margin:0 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+label{display:block;font-size:14px;font-weight:600;margin:0 0 5px}
+.campo{margin-bottom:12px}
+.ayuda{font-size:13px;color:var(--muted);margin-top:4px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;min-height:46px}
+textarea{min-height:80px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--focus);outline-offset:1px}
+.fila2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:12px;padding:12px 16px;font:inherit;font-weight:700;min-height:48px;background:var(--chip);color:var(--ink)}
+.btn.prim{background:var(--accent);color:var(--accent-ink)}
+.btn.osc{background:var(--road);color:#fff}
+.btn.peligro{background:transparent;color:var(--bad);border:1.5px solid var(--bad)}
+.btn.bloque{width:100%}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.seg{display:flex;background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:none;color:var(--muted);font:inherit;font-size:14px;font-weight:600;padding:10px 4px;border-radius:9px;min-height:44px}
+.seg button.on{background:var(--road);color:#fff}
+.seg.sev button.on[data-val=baja]{background:var(--ok)}
+.seg.sev button.on[data-val=media]{background:var(--warn)}
+.seg.sev button.on[data-val=alta]{background:var(--bad)}
+.med{display:grid;grid-template-columns:1fr 1fr 1fr 44px;gap:8px;align-items:end;margin-bottom:8px}
+.med label{font-size:12px;font-weight:600;color:var(--muted)}
+.med .x{height:46px;border:0;border-radius:10px;background:var(--chip);color:var(--muted);font-size:20px}
+.res{background:var(--road);color:#fff;border-radius:14px;padding:14px;margin-bottom:12px}
+.res h3{color:#c9d1d6}
+.res .g{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.res .v{font-size:20px;font-weight:800;color:var(--accent)}
+.res .k{font-size:12px;color:#c9d1d6}
+.gps{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.gps .dato{font-size:14px;color:var(--muted);flex:1;min-width:160px}
+.fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-top:8px}
+.foto{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--chip);display:flex;align-items:center;justify-content:center;font-size:12px;text-align:center}
+.foto img{width:100%;height:100%;object-fit:cover}
+.foto a{color:var(--ink);padding:6px}
+.foto button{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:16px}
+.filtros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.item{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--muted);border-radius:12px;padding:12px 14px;margin-bottom:10px;font:inherit;color:var(--ink)}
+.item.baja{border-left-color:var(--ok)}.item.media{border-left-color:var(--warn)}.item.alta{border-left-color:var(--bad)}
+.item .t{font-weight:700;display:flex;justify-content:space-between;gap:8px}
+.item .s{font-size:14px;color:var(--muted)}
+.item .m{font-size:14px;margin-top:4px}
+.chip{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--chip);color:var(--muted);white-space:nowrap}
+.chip.pend{background:var(--accent);color:var(--accent-ink)}
+.vacio{text-align:center;color:var(--muted);padding:40px 10px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.stat .v{font-size:22px;font-weight:800}
+.stat .k{font-size:13px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600}
+td.n,th.n{text-align:right}
+.toast{position:fixed;left:16px;right:16px;bottom:86px;z-index:20;background:var(--road);color:#fff;border-radius:12px;padding:12px 14px;font-size:15px;box-shadow:0 6px 24px rgba(0,0,0,.25);display:none;max-width:560px;margin:0 auto}
+.toast.on{display:block}
+.chk{display:flex;align-items:center;gap:10px;font-weight:600}
+.chk input{width:24px;height:24px;min-height:0}
+@media (min-width:600px){.stats{grid-template-columns:repeat(3,1fr)}.res .g{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bitácora Vial<small id="subt">Medidas de campo</small></h1>
+  <button id="btnSync" type="button" aria-label="Sincronizar">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>
+    <span id="syncTxt">Sincronizar</span><span class="n" id="nPend" hidden>0</span>
+  </button>
+</header>
+
+<main>
+<!-- LISTA -->
+<section class="vista activa" id="v-lista">
+  <div class="filtros">
+    <select id="fProyecto" aria-label="Proyecto"></select>
+    <input id="fBuscar" type="search" placeholder="Buscar vía, sector, daño…">
+  </div>
+  <div id="lista"></div>
+</section>
+
+<!-- FORMULARIO -->
+<section class="vista" id="v-form">
+  <h2 id="formTitulo">Nuevo daño</h2>
+  <div class="card">
+    <h3>Identificación</h3>
+    <div class="campo"><label for="iProyecto">Proyecto o jornada</label>
+      <input id="iProyecto" list="dlProyectos" placeholder="Ej.: Mantenimiento vereda La Holanda"><datalist id="dlProyectos"></datalist></div>
+    <div class="fila2">
+      <div class="campo"><label for="iFecha">Fecha</label><input id="iFecha" type="date"></div>
+      <div class="campo"><label for="iUsuario">Medido por</label><input id="iUsuario"></div>
+    </div>
+    <div class="campo"><label for="iSector">Vereda / sector / barrio</label><input id="iSector"></div>
+    <div class="fila2">
+      <div class="campo"><label for="iVia">Vía</label><input id="iVia" placeholder="Nombre o código"></div>
+      <div class="campo"><label for="iAbscisa">Abscisa / referencia</label><input id="iAbscisa" placeholder="K0+250, frente a…"></div>
+    </div>
+    <label>Ubicación</label>
+    <div class="gps">
+      <button class="btn osc" type="button" id="btnGps">Tomar GPS</button>
+      <span class="dato" id="gpsDato">Sin coordenadas</span>
+    </div>
+    <div class="fila2" style="margin-top:8px">
+      <div class="campo"><input id="iLat" inputmode="decimal" placeholder="Latitud"></div>
+      <div class="campo"><input id="iLon" inputmode="decimal" placeholder="Longitud"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Daño</h3>
+    <div class="campo"><label>Tipo de pavimento</label>
+      <div class="seg" data-campo="tipoPav">
+        <button type="button" data-val="flexible">Flexible</button>
+        <button type="button" data-val="rigido">Rígido</button>
+        <button type="button" data-val="afirmado">Afirmado</button>
+      </div></div>
+    <div class="campo"><label for="iDano">Tipo de daño</label><select id="iDano"></select></div>
+    <div class="campo"><label>Severidad</label>
+      <div class="seg sev" data-campo="severidad">
+        <button type="button" data-val="baja">Baja</button>
+        <button type="button" data-val="media">Media</button>
+        <button type="button" data-val="alta">Alta</button>
+      </div></div>
+  </div>
+
+  <div class="card">
+    <h3>Mediciones</h3>
+    <p class="ayuda" style="margin-top:-4px">Largo y ancho en metros, profundidad en centímetros. Si el daño es irregular, divídalo en varios rectángulos. Para fisuras, registre solo el largo.</p>
+    <div id="medList"></div>
+    <button class="btn bloque" type="button" id="btnMed">+ Agregar medida</button>
+    <div class="campo" style="margin-top:14px">
+      <label class="chk"><input type="checkbox" id="iCorte"> Aplicar sobrecorte de <span id="txtCorte">0,15</span> m por lado</label>
+      <div class="ayuda">El corte se regulariza en rectángulo más allá del daño; las cantidades se calculan sobre el área de corte.</div>
+    </div>
+    <div class="campo" id="campoCarpeta"><label for="iCarpeta">Espesor de carpeta asfáltica a reponer (cm)</label>
+      <input id="iCarpeta" inputmode="decimal" placeholder="Vacío = toda la profundidad en mezcla">
+      <div class="ayuda">Si la profundidad supera este espesor, el resto se calcula como base granular.</div></div>
+  </div>
+
+  <div class="res" id="resultado"></div>
+
+  <div class="card">
+    <h3>Fotos y seguimiento</h3>
+    <label class="btn bloque" for="iFotos" style="margin:0">Tomar o agregar fotos</label>
+    <input id="iFotos" type="file" accept="image/*" capture="environment" multiple hidden>
+    <div class="fotos" id="fotos"></div>
+    <div class="campo" style="margin-top:12px"><label for="iEstado">Estado</label>
+      <select id="iEstado"><option>Reportado</option><option>Programado</option><option>Intervenido</option></select></div>
+    <div class="campo"><label for="iObs">Observaciones</label><textarea id="iObs" placeholder="Causa probable, drenaje, tránsito, riesgo…"></textarea></div>
+  </div>
+
+  <div class="btns">
+    <button class="btn prim" type="button" id="btnGuardar" style="flex:2">Guardar</button>
+    <button class="btn" type="button" id="btnCancelar" style="flex:1">Cancelar</button>
+  </div>
+  <button class="btn peligro bloque" type="button" id="btnEliminar" style="margin-top:12px">Eliminar registro</button>
+</section>
+
+<!-- RESUMEN -->
+<section class="vista" id="v-resumen">
+  <h2>Resumen de cantidades</h2>
+  <div class="campo"><select id="rProyecto" aria-label="Proyecto"></select></div>
+  <div id="resumen"></div>
+  <div class="card">
+    <h3>Exportar</h3>
+    <div class="btns">
+      <button class="btn osc" type="button" id="btnCsv">Excel (CSV)</button>
+      <button class="btn osc" type="button" id="btnGeo">GeoJSON para QGIS</button>
+    </div>
+    <p class="ayuda">Exporta el proyecto seleccionado arriba.</p>
+  </div>
+</section>
+
+<!-- AJUSTES -->
+<section class="vista" id="v-ajustes">
+  <h2>Ajustes</h2>
+  <div class="card">
+    <h3>Equipo y conexión</h3>
+    <div class="campo"><label for="aUsuario">Su nombre</label><input id="aUsuario" placeholder="Aparece en cada registro"></div>
+    <div class="campo"><label for="aUrl">URL de la hoja (Apps Script)</label><input id="aUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
+    <div class="campo"><label for="aClave">Clave del equipo</label><input id="aClave" type="password" autocomplete="off"></div>
+    <button class="btn" type="button" id="btnProbar">Probar conexión</button>
+  </div>
+  <div class="card">
+    <h3>Factores de cálculo</h3>
+    <p class="ayuda" style="margin-top:-4px">Los tres integrantes deben usar los mismos factores. Cada registro guarda las cantidades calculadas con los factores vigentes al momento de guardarlo.</p>
+    <div class="fila2">
+      <div class="campo"><label for="aCorte">Sobrecorte por lado (m)</label><input id="aCorte" inputmode="decimal"></div>
+      <div class="campo"><label for="aDens">Densidad mezcla compactada (t/m³)</label><input id="aDens" inputmode="decimal"></div>
+      <div class="campo"><label for="aDesp">Desperdicio mezcla (%)</label><input id="aDesp" inputmode="decimal"></div>
+      <div class="campo"><label for="aLiga">Riego de liga (L/m²)</label><input id="aLiga" inputmode="decimal"></div>
+      <div class="campo"><label for="aExp">Factor de expansión granular</label><input id="aExp" inputmode="decimal"></div>
+      <div class="campo"><label for="aDespC">Desperdicio concreto (%)</label><input id="aDespC" inputmode="decimal"></div>
+    </div>
+    <button class="btn prim bloque" type="button" id="btnAjustes">Guardar ajustes</button>
+  </div>
+  <div class="card">
+    <h3>Respaldo</h3>
+    <p class="ayuda" style="margin-top:-4px">Copia de seguridad de los registros (sin fotos). Sirve también para pasar datos entre celulares sin internet.</p>
+    <div class="btns">
+      <button class="btn" type="button" id="btnBackup">Descargar respaldo</button>
+      <label class="btn" for="iImport" style="margin:0">Importar respaldo</label>
+      <input id="iImport" type="file" accept=".json,application/json" hidden>
+    </div>
+  </div>
+</section>
+</main>
+
+<nav>
+  <button type="button" data-vista="lista" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Registros</button>
+  <button type="button" data-vista="nuevo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Nuevo</button>
+  <button type="button" data-vista="resumen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Resumen</button>
+  <button type="button" data-vista="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes</button>
+</nav>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+/* ---------- Catálogo y configuración ---------- */
+const CATALOGO = {
+  flexible: ['Bache','Piel de cocodrilo','Fisura longitudinal','Fisura transversal','Fisura en bloque','Fisura de borde','Ahuellamiento','Hundimiento / depresión','Desprendimiento de agregados','Descascaramiento','Exudación','Parche deteriorado','Corrugación','Otro'],
+  rigido: ['Losa agrietada / fracturada','Fisura longitudinal','Fisura transversal','Fisura de esquina','Daño del sello de juntas','Desportillamiento de juntas','Descascaramiento','Escalonamiento','Bombeo','Hundimiento','Parche deteriorado','Otro'],
+  afirmado: ['Bache','Ahuellamiento','Encalaminado / corrugación','Pérdida de material de rodadura','Erosión / cárcava','Deficiencia de drenaje','Otro']
+};
+const PAV = {flexible:'Flexible', rigido:'Rígido', afirmado:'Afirmado'};
+const DEF = {usuario:'', url:'', clave:'', sobrecorte:0.15, densidad:2.30, desperdicio:5, liga:0.40, expansion:1.30, despConcreto:5, ultimoProyecto:''};
+
+const $ = s => document.querySelector(s);
+const num = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return isFinite(n) ? n : 0; };
+const fmt = (n, d=2) => (Number(n)||0).toLocaleString('es-CO', {minimumFractionDigits:d, maximumFractionDigits:d});
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const hoy = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+
+function cargarCfg(){ try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem('bv-cfg') || '{}')); } catch(e){ return Object.assign({}, DEF); } }
+function guardarCfg(){ try { localStorage.setItem('bv-cfg', JSON.stringify(cfg)); } catch(e){} }
+let cfg = cargarCfg();
+
+/* ---------- Base de datos local (IndexedDB) ---------- */
+let db;
+function abrirDB(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('bitacora-vial', 1);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if (!d.objectStoreNames.contains('registros')) d.createObjectStore('registros', {keyPath:'id'});
+      if (!d.objectStoreNames.contains('fotos')) d.createObjectStore('fotos', {keyPath:'id'});
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function op(store, mode, fn){
+  return new Promise((res, rej) => {
+    const t = db.transaction(store, mode); const req = fn(t.objectStore(store)); let out;
+    if (req) req.onsuccess = () => { out = req.result; };
+    t.oncomplete = () => res(out); t.onerror = () => rej(t.error);
+  });
+}
+const dbTodos = s => op(s, 'readonly', st => st.getAll());
+const dbLeer = (s, id) => op(s, 'readonly', st => st.get(id));
+const dbPoner = (s, v) => op(s, 'readwrite', st => st.put(v));
+const dbBorrar = (s, id) => op(s, 'readwrite', st => st.delete(id));
+
+let registros = [];
+async function recargar(){ registros = await dbTodos('registros'); pintarLista(); pintarPendientes(); llenarProyectos(); }
+
+/* ---------- Cálculos ---------- */
+function calcular(r, c){
+  const s = r.aplicaCorte ? num(c.sobrecorte) : 0;
+  const out = {lineal:0, aDano:0, aCorte:0, vol:0, mezcla:0, liga:0, base:0, concreto:0, granular:0};
+  let volCarpeta = 0, volBase = 0;
+  for (const m of (r.mediciones || [])) {
+    const l = num(m.l), a = num(m.a), p = num(m.p) / 100;
+    if (l > 0 && !(a > 0)) { out.lineal += l; continue; }
+    if (!(l > 0 && a > 0)) continue;
+    const ad = l * a, ac = (l + 2*s) * (a + 2*s);
+    out.aDano += ad; out.aCorte += ac; out.vol += ac * p;
+    const ec = num(r.espCarpeta) > 0 ? Math.min(p, num(r.espCarpeta) / 100) : p;
+    volCarpeta += ac * ec; volBase += ac * Math.max(0, p - ec);
+  }
+  if (r.tipoPav === 'flexible') {
+    out.mezcla = volCarpeta * num(c.densidad) * (1 + num(c.desperdicio) / 100);
+    out.liga = out.aCorte * num(c.liga);
+    out.base = volBase * num(c.expansion);
+  } else if (r.tipoPav === 'rigido') {
+    out.concreto = out.vol * (1 + num(c.despConcreto) / 100);
+  } else {
+    out.granular = out.vol * num(c.expansion);
+  }
+  return out;
+}
+
+function htmlResultado(c, pav){
+  const items = [['Área del daño', fmt(c.aDano)+' m²'], ['Área de corte', fmt(c.aCorte)+' m²'], ['Volumen', fmt(c.vol,3)+' m³']];
+  if (c.lineal > 0) items.push(['Longitud de fisuras', fmt(c.lineal)+' m']);
+  if (pav === 'flexible') { items.push(['Mezcla asfáltica', fmt(c.mezcla)+' t'], ['Riego de liga', fmt(c.liga,1)+' L']); if (c.base > 0) items.push(['Base granular (suelta)', fmt(c.base,3)+' m³']); }
+  if (pav === 'rigido') items.push(['Concreto', fmt(c.concreto,3)+' m³']);
+  if (pav === 'afirmado') items.push(['Material granular (suelto)', fmt(c.granular,3)+' m³']);
+  return '<h3>Cantidades estimadas</h3><div class="g">' + items.map(([k,v]) => `<div><div class="v">${v}</div><div class="k">${k}</div></div>`).join('') + '</div>';
+}
+
+/* ---------- Navegación ---------- */
+function mostrar(v){
+  document.querySelectorAll('section.vista').forEach(s => s.classList.toggle('activa', s.id === 'v-' + v));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('activo', b.dataset.vista === v || (v === 'form' && b.dataset.vista === 'nuevo' && actual && actual._nuevo)));
+  window.scrollTo(0, 0);
+  if (v === 'resumen') pintarResumen();
+  if (v === 'ajustes') llenarAjustes();
+}
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => {
+  const v = b.dataset.vista;
+  if (v === 'nuevo') nuevo(); else mostrar(v);
+}));
+
+let toastT;
+function toast(msg, ms=3200){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms); }
+
+/* ---------- Lista ---------- */
+function proyectos(){ return [...new Set(registros.filter(r => !r.eliminado).map(r => r.proyecto).filter(Boolean))].sort((a,b) => a.localeCompare(b,'es')); }
+function llenarProyectos(){
+  const ps = proyectos();
+  for (const sel of [$('#fProyecto'), $('#rProyecto')]) {
+    const v = sel.value;
+    sel.innerHTML = '<option value="">Todos los proyectos</option>' + ps.map(p => `<option>${esc(p)}</option>`).join('');
+    if (ps.includes(v)) sel.value = v;
+  }
+  $('#dlProyectos').innerHTML = ps.map(p => `<option value="${esc(p)}">`).join('');
+}
+function pintarLista(){
+  const p = $('#fProyecto').value, q = $('#fBuscar').value.trim().toLowerCase();
+  const lista = registros.filter(r => !r.eliminado && (!p || r.proyecto === p) &&
+    (!q || [r.via, r.sector, r.tipoDano, r.abscisa, r.usuario, r.proyecto, r.obs].join(' ').toLowerCase().includes(q)))
+    .sort((a,b) => (b.actualizado||'').localeCompare(a.actualizado||''));
+  $('#subt').textContent = lista.length + (lista.length === 1 ? ' registro' : ' registros');
+  if (!lista.length) { $('#lista').innerHTML = '<div class="vacio">No hay registros todavía.<br><br><button class="btn prim" type="button" onclick="nuevo()">Registrar el primer daño</button></div>'; return; }
+  $('#lista').innerHTML = lista.map(r => {
+    const c = r.calc || {};
+    const cant = r.tipoPav === 'flexible' ? fmt(c.mezcla)+' t mezcla' : r.tipoPav === 'rigido' ? fmt(c.concreto,3)+' m³ concreto' : fmt(c.granular,3)+' m³ granular';
+    return `<button type="button" class="item ${esc(r.severidad)}" data-id="${esc(r.id)}">
+      <div class="t"><span>${esc(r.tipoDano)} · ${esc(PAV[r.tipoPav]||'')}</span>${r.pendiente ? '<span class="chip pend">Sin subir</span>' : `<span class="chip">${esc(r.estado)}</span>`}</div>
+      <div class="s">${esc([r.via, r.sector, r.abscisa].filter(Boolean).join(' · ') || 'Sin ubicación descrita')}</div>
+      <div class="m">${fmt(c.aCorte)} m² · ${fmt(c.vol,3)} m³ · ${cant}${c.lineal > 0 ? ' · '+fmt(c.lineal)+' m fisura' : ''}</div>
+      <div class="s">${esc(r.fecha)} · ${esc(r.usuario || '')} · ${esc(r.proyecto || '')}</div></button>`;
+  }).join('');
+  $('#lista').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => editar(b.dataset.id)));
+}
+$('#fProyecto').addEventListener('change', pintarLista);
+$('#fBuscar').addEventListener('input', pintarLista);
+
+/* ---------- Formulario ---------- */
+let actual = null, formFotos = [], fotosQuitadas = [], urlsObj = [];
+
+function nuevo(){
+  const t = new Date().toISOString();
+  actual = {id:uid(), _nuevo:true, proyecto:cfg.ultimoProyecto || '', fecha:hoy(), usuario:cfg.usuario || '', sector:'', via:'', abscisa:'',
+    lat:'', lon:'', precision:'', tipoPav:'flexible', tipoDano:'Bache', severidad:'media', mediciones:[{l:'',a:'',p:''}],
+    aplicaCorte:true, espCarpeta:'', estado:'Reportado', obs:'', fotos:[], creado:t, actualizado:t, eliminado:false, pendiente:true};
+  formFotos = []; fotosQuitadas = [];
+  llenarForm(); mostrar('form');
+}
+async function editar(id){
+  const r = await dbLeer('registros', id); if (!r) return;
+  actual = JSON.parse(JSON.stringify(r));
+  if (!actual.mediciones || !actual.mediciones.length) actual.mediciones = [{l:'',a:'',p:''}];
+  formFotos = (actual.fotos || []).map(f => ({id:f.id, url:f.url || ''}));
+  fotosQuitadas = [];
+  for (const f of formFotos) { const loc = await dbLeer('fotos', f.id); if (loc) { f.blob = loc.blob; f.guardada = true; } }
+  llenarForm(); mostrar('form');
+}
+function llenarForm(){
+  $('#formTitulo').textContent = actual._nuevo ? 'Nuevo daño' : 'Editar daño';
+  $('#btnEliminar').hidden = !!actual._nuevo;
+  $('#iProyecto').value = actual.proyecto; $('#iFecha').value = actual.fecha; $('#iUsuario').value = actual.usuario;
+  $('#iSector').value = actual.sector; $('#iVia').value = actual.via; $('#iAbscisa').value = actual.abscisa;
+  $('#iLat').value = actual.lat; $('#iLon').value = actual.lon;
+  $('#gpsDato').textContent = actual.lat ? `Precisión ±${actual.precision || '?'} m` : 'Sin coordenadas';
+  $('#iCorte').checked = !!actual.aplicaCorte; $('#txtCorte').textContent = fmt(cfg.sobrecorte);
+  $('#iCarpeta').value = actual.espCarpeta; $('#iEstado').value = actual.estado; $('#iObs').value = actual.obs;
+  pintarSeg(); llenarDanos(); pintarMediciones(); pintarFotos(); actualizarCalc();
+}
+function pintarSeg(){
+  document.querySelectorAll('.seg').forEach(s => s.querySelectorAll('button').forEach(b => b.classList.toggle('on', actual[s.dataset.campo] === b.dataset.val)));
+  $('#campoCarpeta').hidden = actual.tipoPav !== 'flexible';
+}
+function llenarDanos(){
+  const ops = CATALOGO[actual.tipoPav];
+  if (!ops.includes(actual.tipoDano)) actual.tipoDano = ops[0];
+  $('#iDano').innerHTML = ops.map(o => `<option>${esc(o)}</option>`).join('');
+  $('#iDano').value = actual.tipoDano;
+}
+document.querySelectorAll('.seg').forEach(s => s.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  actual[s.dataset.campo] = b.dataset.val; pintarSeg();
+  if (s.dataset.campo === 'tipoPav') { llenarDanos(); actualizarCalc(); }
+}));
+$('#iDano').addEventListener('change', e => actual.tipoDano = e.target.value);
+
+function pintarMediciones(){
+  $('#medList').innerHTML = actual.mediciones.map((m, i) => `<div class="med">
+    <div><label>Largo (m)</label><input inputmode="decimal" data-i="${i}" data-k="l" value="${esc(m.l)}"></div>
+    <div><label>Ancho (m)</label><input inputmode="decimal" data-i="${i}" data-k="a" value="${esc(m.a)}"></div>
+    <div><label>Prof. (cm)</label><input inputmode="decimal" data-i="${i}" data-k="p" value="${esc(m.p)}"></div>
+    <button type="button" class="x" data-quitar="${i}" aria-label="Quitar medida">×</button></div>`).join('');
+}
+$('#medList').addEventListener('input', e => { const t = e.target; if (t.dataset.k) { actual.mediciones[+t.dataset.i][t.dataset.k] = t.value; actualizarCalc(); } });
+$('#medList').addEventListener('click', e => {
+  const q = e.target.dataset.quitar; if (q === undefined) return;
+  actual.mediciones.splice(+q, 1); if (!actual.mediciones.length) actual.mediciones.push({l:'',a:'',p:''});
+  pintarMediciones(); actualizarCalc();
+});
+$('#btnMed').addEventListener('click', () => {
+  const ult = actual.mediciones[actual.mediciones.length - 1] || {};
+  actual.mediciones.push({l:'', a:'', p:ult.p || ''}); pintarMediciones();
+  const ins = $('#medList').querySelectorAll('input'); ins[ins.length - 3].focus();
+});
+$('#iCorte').addEventListener('change', e => { actual.aplicaCorte = e.target.checked; actualizarCalc(); });
+$('#iCarpeta').addEventListener('input', e => { actual.espCarpeta = e.target.value; actualizarCalc(); });
+function actualizarCalc(){ $('#resultado').innerHTML = htmlResultado(calcular(actual, cfg), actual.tipoPav); }
+
+/* GPS */
+$('#btnGps').addEventListener('click', () => {
+  if (!navigator.geolocation) { toast('Este dispositivo no permite GPS.'); return; }
+  $('#gpsDato').textContent = 'Buscando señal GPS…';
+  navigator.geolocation.getCurrentPosition(p => {
+    actual.lat = p.coords.latitude.toFixed(6); actual.lon = p.coords.longitude.toFixed(6); actual.precision = Math.round(p.coords.accuracy);
+    $('#iLat').value = actual.lat; $('#iLon').value = actual.lon;
+    $('#gpsDato').textContent = `Precisión ±${actual.precision} m` + (actual.precision > 15 ? ' (espere y repita para mejorar)' : '');
+  }, err => { $('#gpsDato').textContent = 'No se obtuvo ubicación: ' + (err.code === 1 ? 'permiso denegado' : 'sin señal, intente al aire libre'); },
+  {enableHighAccuracy:true, timeout:25000, maximumAge:0});
+});
+
+/* Fotos */
+async function comprimir(file){
+  const img = await createImageBitmap(file);
+  const k = Math.min(1, 1280 / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.72));
+}
+$('#iFotos').addEventListener('change', async e => {
+  for (const f of e.target.files) { try { formFotos.push({id:uid(), blob:await comprimir(f), url:''}); } catch(err) { toast('No se pudo leer una foto.'); } }
+  e.target.value = ''; pintarFotos();
+});
+function pintarFotos(){
+  urlsObj.forEach(u => URL.revokeObjectURL(u)); urlsObj = [];
+  $('#fotos').innerHTML = formFotos.map((f, i) => {
+    let dentro;
+    if (f.blob) { const u = URL.createObjectURL(f.blob); urlsObj.push(u); dentro = `<img src="${u}" alt="Foto ${i+1}">`; }
+    else if (f.url) dentro = `<a href="${esc(f.url)}" target="_blank" rel="noopener">Ver foto en Drive</a>`;
+    else dentro = 'Foto';
+    return `<div class="foto">${dentro}<button type="button" data-qf="${i}" aria-label="Quitar foto">×</button></div>`;
+  }).join('');
+}
+$('#fotos').addEventListener('click', e => {
+  const i = e.target.dataset.qf; if (i === undefined) return;
+  if (!confirm('¿Quitar esta foto?')) return;
+  const [f] = formFotos.splice(+i, 1); if (f.guardada) fotosQuitadas.push(f.id); pintarFotos();
+});
+
+/* Guardar / eliminar */
+function leerForm(){
+  actual.proyecto = $('#iProyecto').value.trim(); actual.fecha = $('#iFecha').value; actual.usuario = $('#iUsuario').value.trim();
+  actual.sector = $('#iSector').value.trim(); actual.via = $('#iVia').value.trim(); actual.abscisa = $('#iAbscisa').value.trim();
+  actual.lat = $('#iLat').value.trim().replace(',', '.'); actual.lon = $('#iLon').value.trim().replace(',', '.');
+  actual.tipoDano = $('#iDano').value; actual.estado = $('#iEstado').value; actual.obs = $('#iObs').value.trim();
+  actual.espCarpeta = $('#iCarpeta').value.trim();
+}
+$('#btnGuardar').addEventListener('click', async () => {
+  leerForm();
+  if (!actual.proyecto) { toast('Escriba el proyecto o jornada.'); $('#iProyecto').focus(); return; }
+  actual.mediciones = actual.mediciones.filter(m => num(m.l) > 0);
+  if (!actual.mediciones.length) { actual.mediciones = [{l:'',a:'',p:''}]; pintarMediciones(); toast('Registre al menos un largo.'); return; }
+  actual.calc = calcular(actual, cfg);
+  actual.factores = {sobrecorte:num(cfg.sobrecorte), densidad:num(cfg.densidad), desperdicio:num(cfg.desperdicio), liga:num(cfg.liga), expansion:num(cfg.expansion), despConcreto:num(cfg.despConcreto)};
+  for (const f of formFotos) if (f.blob && !f.guardada) { await dbPoner('fotos', {id:f.id, registro:actual.id, blob:f.blob}); f.guardada = true; }
+  for (const id of fotosQuitadas) await dbBorrar('fotos', id);
+  actual.fotos = formFotos.map(f => ({id:f.id, url:f.url || ''}));
+  actual.actualizado = new Date().toISOString(); actual.pendiente = true;
+  delete actual._nuevo;
+  await dbPoner('registros', actual);
+  cfg.ultimoProyecto = actual.proyecto; if (!cfg.usuario && actual.usuario) cfg.usuario = actual.usuario; guardarCfg();
+  await recargar(); mostrar('lista'); toast('Guardado en el celular.');
+  if (navigator.onLine && cfg.url) sincronizar(true);
+});
+$('#btnCancelar').addEventListener('click', () => mostrar('lista'));
+$('#btnEliminar').addEventListener('click', async () => {
+  if (!confirm('¿Eliminar este registro? Quedará marcado como eliminado en la hoja.')) return;
+  actual.eliminado = true; actual.pendiente = true; actual.actualizado = new Date().toISOString(); delete actual._nuevo;
+  await dbPoner('registros', actual); await recargar(); mostrar('lista'); toast('Registro eliminado.');
+  if (navigator.onLine && cfg.url) sincronizar(true);
+});
+
+/* ---------- Resumen y exportación ---------- */
+function filtrados(){ const p = $('#rProyecto').value; return registros.filter(r => !r.eliminado && (!p || r.proyecto === p)); }
+function sumar(lista){
+  const t = {n:lista.length, lineal:0, aDano:0, aCorte:0, vol:0, mezcla:0, liga:0, base:0, concreto:0, granular:0};
+  for (const r of lista) for (const k in r.calc || {}) if (k in t) t[k] += num(r.calc[k]);
+  return t;
+}
+function pintarResumen(){
+  const lista = filtrados(), t = sumar(lista);
+  const stats = [['Daños registrados', t.n, 0], ['Área de corte (m²)', t.aCorte, 2], ['Volumen (m³)', t.vol, 3], ['Mezcla asfáltica (t)', t.mezcla, 2], ['Riego de liga (L)', t.liga, 1], ['Base granular (m³)', t.base, 3], ['Concreto (m³)', t.concreto, 3], ['Material granular (m³)', t.granular, 3], ['Fisuras (m)', t.lineal, 2]]
+    .filter(([k, v], i) => i < 3 || v > 0);
+  const porTipo = {};
+  for (const r of lista) { const k = r.tipoDano + ' · ' + (PAV[r.tipoPav] || ''); (porTipo[k] ||= []).push(r); }
+  const porEstado = {};
+  for (const r of lista) (porEstado[r.estado] ||= []).push(r);
+  $('#resumen').innerHTML = `<div class="stats">${stats.map(([k,v,d]) => `<div class="stat"><div class="v">${d ? fmt(v,d) : v}</div><div class="k">${k}</div></div>`).join('')}</div>
+    <div class="card"><h3>Por tipo de daño</h3><table><tr><th>Daño</th><th class="n">Cant.</th><th class="n">m² corte</th><th class="n">m³</th></tr>
+    ${Object.entries(porTipo).sort((a,b) => b[1].length - a[1].length).map(([k, rs]) => { const s = sumar(rs); return `<tr><td>${esc(k)}</td><td class="n">${s.n}</td><td class="n">${fmt(s.aCorte)}</td><td class="n">${fmt(s.vol,3)}</td></tr>`; }).join('') || '<tr><td colspan="4">Sin datos</td></tr>'}
+    </table></div>
+    <div class="card"><h3>Por estado</h3><table><tr><th>Estado</th><th class="n">Cant.</th><th class="n">m² corte</th></tr>
+    ${['Reportado','Programado','Intervenido'].filter(e => porEstado[e]).map(e => { const s = sumar(porEstado[e]); return `<tr><td>${e}</td><td class="n">${s.n}</td><td class="n">${fmt(s.aCorte)}</td></tr>`; }).join('') || '<tr><td colspan="3">Sin datos</td></tr>'}
+    </table><p class="ayuda">Las cantidades son estimativas y se calculan con los factores definidos en Ajustes.</p></div>`;
+}
+$('#rProyecto').addEventListener('change', pintarResumen);
+
+function descargar(nombre, contenido, tipo){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([contenido], {type:tipo})); a.download = nombre;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+const nombreArchivo = ext => 'bitacora_vial_' + ($('#rProyecto').value || 'todos').replace(/[^\w\-áéíóúñÁÉÍÓÚÑ]+/g, '_') + '_' + hoy() + '.' + ext;
+$('#btnCsv').addEventListener('click', () => {
+  const lista = filtrados(); if (!lista.length) { toast('No hay registros para exportar.'); return; }
+  const cab = ['Proyecto','Fecha','Medido por','Vereda/sector','Vía','Abscisa','Latitud','Longitud','Pavimento','Tipo de daño','Severidad','Mediciones (L x A x P)','Sobrecorte','Fisuras (m)','Área daño (m²)','Área corte (m²)','Volumen (m³)','Mezcla (t)','Riego liga (L)','Base granular (m³)','Concreto (m³)','Material granular (m³)','Estado','Observaciones','Fotos (Drive)'];
+  const cel = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const n = (v, d) => fmt(v, d).replace(/\./g, '');
+  const filas = lista.map(r => { const c = r.calc || {}; return [r.proyecto, r.fecha, r.usuario, r.sector, r.via, r.abscisa, r.lat, r.lon, PAV[r.tipoPav], r.tipoDano, r.severidad,
+    r.mediciones.map(m => `${m.l} x ${m.a || '-'} x ${m.p || '-'} cm`).join(' | '), r.aplicaCorte ? 'Sí' : 'No',
+    n(c.lineal,2), n(c.aDano,2), n(c.aCorte,2), n(c.vol,3), n(c.mezcla,2), n(c.liga,1), n(c.base,3), n(c.concreto,3), n(c.granular,3),
+    r.estado, r.obs, (r.fotos || []).map(f => f.url).filter(Boolean).join(' | ')].map(cel).join(';'); });
+  descargar(nombreArchivo('csv'), '\ufeff' + [cab.join(';'), ...filas].join('\r\n'), 'text/csv;charset=utf-8');
+});
+$('#btnGeo').addEventListener('click', () => {
+  const lista = filtrados().filter(r => num(r.lat) && num(r.lon));
+  if (!lista.length) { toast('No hay registros con coordenadas.'); return; }
+  const gj = {type:'FeatureCollection', features: lista.map(r => { const c = r.calc || {}; return {type:'Feature', geometry:{type:'Point', coordinates:[num(r.lon), num(r.lat)]},
+    properties:{id:r.id, proyecto:r.proyecto, fecha:r.fecha, usuario:r.usuario, sector:r.sector, via:r.via, abscisa:r.abscisa, pavimento:PAV[r.tipoPav], dano:r.tipoDano, severidad:r.severidad, estado:r.estado,
+      fisuras_m:+num(c.lineal).toFixed(2), area_dano_m2:+num(c.aDano).toFixed(2), area_corte_m2:+num(c.aCorte).toFixed(2), volumen_m3:+num(c.vol).toFixed(3), mezcla_t:+num(c.mezcla).toFixed(2), liga_l:+num(c.liga).toFixed(1),
+      base_m3:+num(c.base).toFixed(3), concreto_m3:+num(c.concreto).toFixed(3), granular_m3:+num(c.granular).toFixed(3), precision_m:r.precision, observaciones:r.obs, fotos:(r.fotos || []).map(f => f.url).filter(Boolean).join(' | ')}}; })};
+  descargar(nombreArchivo('geojson'), JSON.stringify(gj, null, 1), 'application/geo+json');
+});
+
+/* ---------- Ajustes ---------- */
+function llenarAjustes(){
+  $('#aUsuario').value = cfg.usuario; $('#aUrl').value = cfg.url; $('#aClave').value = cfg.clave;
+  $('#aCorte').value = cfg.sobrecorte; $('#aDens').value = cfg.densidad; $('#aDesp').value = cfg.desperdicio;
+  $('#aLiga').value = cfg.liga; $('#aExp').value = cfg.expansion; $('#aDespC').value = cfg.despConcreto;
+}
+function leerAjustes(){
+  cfg.usuario = $('#aUsuario').value.trim(); cfg.url = $('#aUrl').value.trim(); cfg.clave = $('#aClave').value;
+  cfg.sobrecorte = num($('#aCorte').value); cfg.densidad = num($('#aDens').value); cfg.desperdicio = num($('#aDesp').value);
+  cfg.liga = num($('#aLiga').value); cfg.expansion = num($('#aExp').value) || 1; cfg.despConcreto = num($('#aDespC').value);
+}
+$('#btnAjustes').addEventListener('click', () => { leerAjustes(); guardarCfg(); toast('Ajustes guardados.'); });
+$('#btnProbar').addEventListener('click', async () => {
+  leerAjustes(); guardarCfg();
+  if (!cfg.url) { toast('Pegue primero la URL de Apps Script.'); return; }
+  try {
+    const r = await fetch(cfg.url + '?accion=ping&clave=' + encodeURIComponent(cfg.clave)); const j = await r.json();
+    toast(j.ok ? 'Conexión correcta con la hoja.' : 'La hoja respondió: ' + j.error, 4500);
+  } catch(e) { toast('No hay conexión con la hoja. Revise internet y la URL.', 4500); }
+});
+$('#btnBackup').addEventListener('click', () => descargar('respaldo_bitacora_' + hoy() + '.json', JSON.stringify({version:1, registros}), 'application/json'));
+$('#iImport').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text()); let n = 0;
+    for (const r of (d.registros || [])) { const loc = await dbLeer('registros', r.id); if (!loc || (r.actualizado || '') > (loc.actualizado || '')) { await dbPoner('registros', r); n++; } }
+    await recargar(); toast(n + ' registros importados.');
+  } catch(err) { toast('El archivo no es un respaldo válido.'); }
+});
+
+/* ---------- Sincronización con Google Sheets ---------- */
+let sincronizando = false;
+function pintarPendientes(){ const n = registros.filter(r => r.pendiente).length; $('#nPend').textContent = n; $('#nPend').hidden = !n; }
+function aBase64(blob){ return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); }); }
+async function sincronizar(silencioso){
+  if (sincronizando) return;
+  if (!cfg.url) { if (!silencioso) { toast('Configure la URL de la hoja en Ajustes.'); mostrar('ajustes'); } return; }
+  if (!navigator.onLine) { if (!silencioso) toast('Sin conexión. Los datos siguen guardados en el celular.'); return; }
+  sincronizando = true; $('#btnSync').classList.add('girando'); $('#syncTxt').textContent = 'Sincronizando…';
+  let subidos = 0, errores = 0, bajados = 0;
+  try {
+    for (const r of registros.filter(x => x.pendiente)) {
+      try {
+        const fotos = [];
+        for (const f of (r.fotos || [])) if (!f.url) { const loc = await dbLeer('fotos', f.id); if (loc) fotos.push({id:f.id, mime:'image/jpeg', nombre:(r.proyecto || 'foto').slice(0,40) + '_' + r.id.slice(0,8) + '_' + f.id.slice(0,4) + '.jpg', base64:await aBase64(loc.blob)}); }
+        const envio = Object.assign({}, r); delete envio.pendiente;
+        const resp = await fetch(cfg.url, {method:'POST', body:JSON.stringify({accion:'guardar', clave:cfg.clave, registro:envio, fotos})});
+        const j = await resp.json(); if (!j.ok) throw new Error(j.error);
+        const fresco = await dbLeer('registros', r.id);
+        if (fresco && fresco.actualizado === r.actualizado) {
+          (fresco.fotos || []).forEach(f => { if (j.fotos && j.fotos[f.id]) f.url = j.fotos[f.id]; });
+          fresco.pendiente = false; await dbPoner('registros', fresco);
+        }
+        subidos++;
+      } catch(e) { errores++; console.warn(e); }
+    }
+    const g = await fetch(cfg.url + '?accion=listar&clave=' + encodeURIComponent(cfg.clave)); const j = await g.json();
+    if (!j.ok) throw new Error(j.error);
+    for (const rr of (j.registros || [])) {
+      const loc = await dbLeer('registros', rr.id);
+      if (!loc || (!loc.pendiente && (rr.actualizado || '') > (loc.actualizado || ''))) {
+        rr.pendiente = false;
+        if (loc) (rr.fotos || []).forEach(f => { if (!f.url) { const lf = (loc.fotos || []).find(x => x.id === f.id); if (lf) f.url = lf.url; } });
+        await dbPoner('registros', rr); bajados++;
+      }
+    }
+    await recargar();
+    if (!silencioso || errores) toast(errores ? `Se subieron ${subidos}; ${errores} con error, se reintentará.` : `Sincronizado: ${subidos} subidos, ${bajados} recibidos del equipo.`, 4000);
+  } catch(e) {
+    if (!silencioso) toast('No se pudo sincronizar: ' + (e.message || 'revise la conexión') , 4500);
+  } finally {
+    sincronizando = false; $('#btnSync').classList.remove('girando'); $('#syncTxt').textContent = 'Sincronizar'; pintarPendientes();
+  }
+}
+$('#btnSync').addEventListener('click', () => sincronizar(false));
+window.addEventListener('online', () => sincronizar(true));
+
+/* ---------- Inicio ---------- */
+(async () => {
+  try { db = await abrirDB(); } catch(e) { toast('Este navegador no permite guardar datos. Use Chrome.', 6000); return; }
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  await recargar();
+  if (navigator.onLine && cfg.url) sincronizar(true);
+})();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
