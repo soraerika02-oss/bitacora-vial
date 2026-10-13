@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el celular para que abra sin internet.
 // Cuando publique una versión nueva de index.html, cambie el número de CACHE.
-const CACHE = 'bitacora-vial-v1';
+const CACHE = 'bitacora-vial-v2';
 const ARCHIVOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

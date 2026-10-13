@@ -170,8 +170,12 @@ td.n,th.n{text-align:right}
 
   <div class="card">
     <h3>Fotos y seguimiento</h3>
-    <label class="btn bloque" for="iFotos" style="margin:0">Tomar o agregar fotos</label>
-    <input id="iFotos" type="file" accept="image/*" capture="environment" multiple hidden>
+    <div class="fila2">
+      <label class="btn osc" for="iCamara" style="margin:0">Tomar foto</label>
+      <label class="btn" for="iGaleria" style="margin:0">Desde galería</label>
+    </div>
+    <input id="iCamara" type="file" accept="image/*" capture="environment" hidden>
+    <input id="iGaleria" type="file" accept="image/*" multiple hidden>
     <div class="fotos" id="fotos"></div>
     <div class="campo" style="margin-top:12px"><label for="iEstado">Estado</label>
       <select id="iEstado"><option>Reportado</option><option>Programado</option><option>Intervenido</option></select></div>
@@ -331,6 +335,7 @@ function htmlResultado(c, pav){
 
 /* ---------- Navegación ---------- */
 function mostrar(v){
+  if (v !== 'form' && gpsWatch !== null) detenerGps();
   document.querySelectorAll('section.vista').forEach(s => s.classList.toggle('activa', s.id === 'v-' + v));
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('activo', b.dataset.vista === v || (v === 'form' && b.dataset.vista === 'nuevo' && actual && actual._nuevo)));
   window.scrollTo(0, 0);
@@ -448,15 +453,31 @@ $('#iCarpeta').addEventListener('input', e => { actual.espCarpeta = e.target.val
 function actualizarCalc(){ $('#resultado').innerHTML = htmlResultado(calcular(actual, cfg), actual.tipoPav); }
 
 /* GPS */
+let gpsWatch = null, gpsTimer = null;
+function detenerGps(msgFinal){
+  if (gpsWatch !== null) navigator.geolocation.clearWatch(gpsWatch);
+  clearTimeout(gpsTimer); gpsWatch = null;
+  $('#btnGps').textContent = 'Tomar GPS';
+  if (msgFinal) $('#gpsDato').textContent = msgFinal;
+}
 $('#btnGps').addEventListener('click', () => {
+  if (gpsWatch !== null) { detenerGps(actual.lat ? `Listo · precisión ±${actual.precision} m` : 'GPS detenido'); return; }
   if (!navigator.geolocation) { toast('Este dispositivo no permite GPS.'); return; }
-  $('#gpsDato').textContent = 'Buscando señal GPS…';
-  navigator.geolocation.getCurrentPosition(p => {
-    actual.lat = p.coords.latitude.toFixed(6); actual.lon = p.coords.longitude.toFixed(6); actual.precision = Math.round(p.coords.accuracy);
-    $('#iLat').value = actual.lat; $('#iLon').value = actual.lon;
-    $('#gpsDato').textContent = `Precisión ±${actual.precision} m` + (actual.precision > 15 ? ' (espere y repita para mejorar)' : '');
-  }, err => { $('#gpsDato').textContent = 'No se obtuvo ubicación: ' + (err.code === 1 ? 'permiso denegado' : 'sin señal, intente al aire libre'); },
-  {enableHighAccuracy:true, timeout:25000, maximumAge:0});
+  let mejor = Infinity;
+  $('#btnGps').textContent = 'Detener'; $('#gpsDato').textContent = 'Buscando satélites…';
+  gpsWatch = navigator.geolocation.watchPosition(p => {
+    const acc = Math.round(p.coords.accuracy);
+    if (acc < mejor) {
+      mejor = acc;
+      actual.lat = p.coords.latitude.toFixed(6); actual.lon = p.coords.longitude.toFixed(6); actual.precision = acc;
+      $('#iLat').value = actual.lat; $('#iLon').value = actual.lon;
+    }
+    $('#gpsDato').textContent = `Afinando… mejor precisión ±${mejor} m`;
+    if (mejor <= 5) detenerGps(`Listo · precisión ±${mejor} m`);
+  }, err => {
+    detenerGps(err.code === 1 ? 'Permiso de ubicación denegado: actívelo en el navegador' : (actual.lat ? `Listo · precisión ±${actual.precision} m` : 'Sin señal: intente al aire libre, lejos de árboles y muros'));
+  }, {enableHighAccuracy:true, timeout:30000, maximumAge:0});
+  gpsTimer = setTimeout(() => detenerGps(actual.lat ? `Listo · precisión ±${actual.precision} m` + (actual.precision > 15 ? ' (baja, revise)' : '') : 'Sin señal: intente al aire libre'), 30000);
 });
 
 /* Fotos */
@@ -467,10 +488,12 @@ async function comprimir(file){
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.72));
 }
-$('#iFotos').addEventListener('change', async e => {
+async function agregarFotos(e){
   for (const f of e.target.files) { try { formFotos.push({id:uid(), blob:await comprimir(f), url:''}); } catch(err) { toast('No se pudo leer una foto.'); } }
   e.target.value = ''; pintarFotos();
-});
+}
+$('#iCamara').addEventListener('change', agregarFotos);
+$('#iGaleria').addEventListener('change', agregarFotos);
 function pintarFotos(){
   urlsObj.forEach(u => URL.revokeObjectURL(u)); urlsObj = [];
   $('#fotos').innerHTML = formFotos.map((f, i) => {
