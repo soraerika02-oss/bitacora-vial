@@ -176,6 +176,7 @@ td.n,th.n{text-align:right}
     </div>
     <input id="iCamara" type="file" accept="image/*" capture="environment" hidden>
     <input id="iGaleria" type="file" accept="image/*" multiple hidden>
+    <p class="ayuda" id="ayudaSello">Las fotos llevan sello con fecha, coordenadas, vereda y logo. Llene la ubicación y tome el GPS antes de la foto.</p>
     <div class="fotos" id="fotos"></div>
     <div class="campo" style="margin-top:12px"><label for="iEstado">Estado</label>
       <select id="iEstado"><option>Reportado</option><option>Programado</option><option>Intervenido</option></select></div>
@@ -228,6 +229,23 @@ td.n,th.n{text-align:right}
     <button class="btn prim bloque" type="button" id="btnAjustes">Guardar ajustes</button>
   </div>
   <div class="card">
+    <h3>Sello en las fotos</h3>
+    <p class="ayuda" style="margin-top:-4px">Estampa en cada foto la fecha y hora, las coordenadas, vereda, vía, tipo de daño, proyecto, quién registró y el logo.</p>
+    <div class="campo"><label class="chk"><input type="checkbox" id="aSelloCam"> Estampar fotos tomadas con la cámara</label></div>
+    <div class="campo"><label class="chk"><input type="checkbox" id="aSelloGal"> Estampar fotos de la galería</label>
+      <div class="ayuda">Déjelo apagado si las fotos de la galería ya vienen con sello de otra aplicación. Si la foto trae fecha y GPS guardados, se usan esos datos.</div></div>
+    <label>Logo</label>
+    <div class="gps">
+      <div class="foto" style="width:92px;flex:none" id="logoPrev">Sin logo</div>
+      <div class="btns" style="flex:1">
+        <label class="btn" for="iLogo" style="margin:0">Cargar logo</label>
+        <button class="btn" type="button" id="btnQuitarLogo">Quitar</button>
+      </div>
+    </div>
+    <input id="iLogo" type="file" accept="image/*" hidden>
+    <p class="ayuda">Use una imagen PNG con fondo transparente. Si no carga uno aquí, la app usa el archivo <b>logo.png</b> publicado junto con la app, si existe.</p>
+  </div>
+  <div class="card">
     <h3>Respaldo</h3>
     <p class="ayuda" style="margin-top:-4px">Copia de seguridad de los registros (sin fotos). Sirve también para pasar datos entre celulares sin internet.</p>
     <div class="btns">
@@ -256,7 +274,7 @@ const CATALOGO = {
   afirmado: ['Bache','Ahuellamiento','Encalaminado / corrugación','Pérdida de material de rodadura','Erosión / cárcava','Deficiencia de drenaje','Otro']
 };
 const PAV = {flexible:'Flexible', rigido:'Rígido', afirmado:'Afirmado'};
-const DEF = {usuario:'', url:'', clave:'', sobrecorte:0.15, densidad:2.30, desperdicio:5, liga:0.40, expansion:1.30, despConcreto:5, ultimoProyecto:''};
+const DEF = {usuario:'', url:'', clave:'', sobrecorte:0.15, densidad:2.30, desperdicio:5, liga:0.40, expansion:1.30, despConcreto:5, ultimoProyecto:'', selloCamara:true, selloGaleria:false, logo:''};
 
 const $ = s => document.querySelector(s);
 const num = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return isFinite(n) ? n : 0; };
@@ -481,19 +499,135 @@ $('#btnGps').addEventListener('click', () => {
 });
 
 /* Fotos */
-async function comprimir(file){
+/* Logo para el sello: el cargado en Ajustes o, si no hay, logo.png publicado con la app */
+let logoImg = null;
+function cargarLogo(){
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => { logoImg = im; pintarLogo(); res(); };
+    im.onerror = () => { logoImg = null; pintarLogo(); res(); };
+    im.src = cfg.logo || 'logo.png';
+  });
+}
+function pintarLogo(){ $('#logoPrev').innerHTML = logoImg ? `<img src="${logoImg.src}" alt="Logo" style="object-fit:contain;background:#fff">` : 'Sin logo'; }
+$('#iLogo').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const img = await createImageBitmap(f); const k = Math.min(1, 400 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    cfg.logo = c.toDataURL('image/png'); guardarCfg(); await cargarLogo(); toast('Logo guardado en este celular.');
+  } catch(err) { toast('No se pudo leer el logo.'); }
+});
+$('#btnQuitarLogo').addEventListener('click', async () => { cfg.logo = ''; guardarCfg(); await cargarLogo(); toast(logoImg ? 'Se usará el logo publicado con la app.' : 'Logo quitado.'); });
+
+/* Lee fecha y GPS guardados dentro de una foto JPEG (EXIF) */
+async function leerExif(file){
+  try {
+    const v = new DataView(await file.slice(0, 262144).arrayBuffer());
+    if (v.getUint16(0) !== 0xFFD8) return {};
+    let o = 2;
+    while (o < v.byteLength - 10) {
+      const m = v.getUint16(o); if ((m & 0xFF00) !== 0xFF00) break;
+      if (m === 0xFFE1 && v.getUint32(o + 4) === 0x45786966) return tiffExif(v, o + 10);
+      o += 2 + v.getUint16(o + 2);
+    }
+  } catch(e) {}
+  return {};
+}
+function tiffExif(v, t){
+  const le = v.getUint16(t) === 0x4949, u16 = p => v.getUint16(p, le), u32 = p => v.getUint32(p, le);
+  const ifd = p => { const n = u16(p), tg = {}; for (let i = 0; i < n; i++) { const e = p + 2 + i*12; tg[u16(e)] = {n:u32(e + 4), off:e + 8}; } return tg; };
+  const txt = g => { const p = g.n > 4 ? t + u32(g.off) : g.off; let s = ''; for (let i = 0; i < g.n - 1; i++) s += String.fromCharCode(v.getUint8(p + i)); return s; };
+  const rat = g => { const p = t + u32(g.off), a = []; for (let i = 0; i < 3; i++) a.push(u32(p + i*8) / (u32(p + i*8 + 4) || 1)); return a[0] + a[1]/60 + a[2]/3600; };
+  const fecha = g => { const m = g && txt(g).match(/(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/); return m ? new Date(+m[1], m[2]-1, +m[3], +m[4], +m[5], +m[6]) : null; };
+  const out = {}, i0 = ifd(t + u32(t + 4));
+  if (i0[0x8769]) { const ex = ifd(t + u32(i0[0x8769].off)); out.fecha = fecha(ex[0x9003]) || fecha(ex[0x9004]); }
+  if (!out.fecha) out.fecha = fecha(i0[0x0132]);
+  if (i0[0x8825]) {
+    const g = ifd(t + u32(i0[0x8825].off));
+    if (g[2] && g[4]) {
+      let lat = rat(g[2]), lon = rat(g[4]);
+      if (g[1] && txt(g[1]) === 'S') lat = -lat;
+      if (g[3] && txt(g[3]) === 'W') lon = -lon;
+      if (lat || lon) { out.lat = lat; out.lon = lon; }
+    }
+  }
+  return out;
+}
+function gpsRapido(){
+  return new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(p => res(p.coords), () => res(null), {enableHighAccuracy:true, timeout:8000, maximumAge:120000});
+  });
+}
+function ponerCoords(lat, lon, prec, origen){
+  actual.lat = (+lat).toFixed(6); actual.lon = (+lon).toFixed(6); actual.precision = prec || '';
+  $('#iLat').value = actual.lat; $('#iLon').value = actual.lon;
+  $('#gpsDato').textContent = origen;
+}
+
+/* Sello: franja inferior con datos y logo */
+function dibujarSello(ctx, W, H, s){
+  leerForm();
+  const f = Math.max(14, Math.round(Math.min(W, H * 1.4) * 0.027)), lh = Math.round(f * 1.32), pad = Math.round(f * 0.75);
+  const fechaTxt = s.fecha.toLocaleString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}).replace(',', '');
+  const lineas = [
+    fechaTxt,
+    s.lat != null ? `${(+s.lat).toFixed(6)}, ${(+s.lon).toFixed(6)}${s.prec ? '  ±' + s.prec + ' m' : ''}` : 'Sin coordenadas',
+    [actual.sector, actual.via, actual.abscisa].filter(Boolean).join(' · '),
+    [actual.tipoDano, actual.proyecto].filter(Boolean).join(' · '),
+    actual.usuario ? 'Registró: ' + actual.usuario : ''
+  ].filter(Boolean);
+  const bh = pad * 2 + lh * lineas.length, y0 = H - bh;
+  ctx.fillStyle = 'rgba(0,0,0,0.58)'; ctx.fillRect(0, y0, W, bh);
+  ctx.fillStyle = '#f2a900'; ctx.fillRect(0, y0, W, Math.max(3, Math.round(f * 0.18)));
+  let anchoLogo = 0;
+  if (logoImg) {
+    const hMax = bh - pad * 1.4, wMax = W * 0.28;
+    let h = hMax, w = logoImg.width * h / logoImg.height; if (w > wMax) { w = wMax; h = logoImg.height * w / logoImg.width; }
+    const x = W - pad - w, y = y0 + (bh - h) / 2, r = pad * 0.5;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - r, y - r, w + 2*r, h + 2*r, r) : ctx.rect(x - r, y - r, w + 2*r, h + 2*r); ctx.fill();
+    ctx.drawImage(logoImg, x, y, w, h); anchoLogo = w + 2*r + pad;
+  }
+  ctx.fillStyle = '#fff'; ctx.textBaseline = 'top';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = Math.round(f * 0.15);
+  lineas.forEach((tx, i) => {
+    ctx.font = `${i === 0 ? 700 : 500} ${f}px system-ui, -apple-system, Roboto, sans-serif`;
+    ctx.fillText(tx, pad, y0 + pad + i * lh, W - pad * 2 - anchoLogo);
+  });
+  ctx.shadowBlur = 0;
+}
+
+async function procesarFoto(file, origen){
   const img = await createImageBitmap(file);
-  const k = Math.min(1, 1280 / Math.max(img.width, img.height));
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height));
   const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.72));
+  const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, c.width, c.height);
+  let s = {fecha:new Date(), lat:actual.lat ? num(actual.lat) : null, lon:actual.lon ? num(actual.lon) : null, prec:actual.precision};
+  if (origen === 'galeria') {
+    const ex = await leerExif(file);
+    s.fecha = ex.fecha || (file.lastModified ? new Date(file.lastModified) : new Date());
+    if (ex.lat != null) {
+      s.lat = ex.lat; s.lon = ex.lon; s.prec = '';
+      if (!actual.lat) ponerCoords(ex.lat, ex.lon, '', 'Coordenadas tomadas de la foto');
+    }
+  } else if (s.lat == null && cfg.selloCamara) {
+    const p = await gpsRapido();
+    if (p) { s.lat = p.latitude; s.lon = p.longitude; s.prec = Math.round(p.accuracy); ponerCoords(p.latitude, p.longitude, s.prec, `Precisión ±${s.prec} m (tomada con la foto)`); }
+  }
+  if (origen === 'camara' ? cfg.selloCamara : cfg.selloGaleria) dibujarSello(ctx, c.width, c.height, s);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.78));
 }
-async function agregarFotos(e){
-  for (const f of e.target.files) { try { formFotos.push({id:uid(), blob:await comprimir(f), url:''}); } catch(err) { toast('No se pudo leer una foto.'); } }
-  e.target.value = ''; pintarFotos();
+async function agregarFotos(e, origen){
+  const files = [...e.target.files]; e.target.value = '';
+  if (files.length) toast(files.length > 1 ? 'Procesando fotos…' : 'Procesando foto…', 1500);
+  for (const f of files) { try { formFotos.push({id:uid(), blob:await procesarFoto(f, origen), url:''}); } catch(err) { console.warn(err); toast('No se pudo leer una foto.'); } }
+  pintarFotos();
 }
-$('#iCamara').addEventListener('change', agregarFotos);
-$('#iGaleria').addEventListener('change', agregarFotos);
+$('#iCamara').addEventListener('change', e => agregarFotos(e, 'camara'));
+$('#iGaleria').addEventListener('change', e => agregarFotos(e, 'galeria'));
 function pintarFotos(){
   urlsObj.forEach(u => URL.revokeObjectURL(u)); urlsObj = [];
   $('#fotos').innerHTML = formFotos.map((f, i) => {
@@ -575,11 +709,17 @@ function descargar(nombre, contenido, tipo){
 const nombreArchivo = ext => 'bitacora_vial_' + ($('#rProyecto').value || 'todos').replace(/[^\w\-áéíóúñÁÉÍÓÚÑ]+/g, '_') + '_' + hoy() + '.' + ext;
 $('#btnCsv').addEventListener('click', () => {
   const lista = filtrados(); if (!lista.length) { toast('No hay registros para exportar.'); return; }
-  const cab = ['Proyecto','Fecha','Medido por','Vereda/sector','Vía','Abscisa','Latitud','Longitud','Pavimento','Tipo de daño','Severidad','Mediciones (L x A x P)','Sobrecorte','Fisuras (m)','Área daño (m²)','Área corte (m²)','Volumen (m³)','Mezcla (t)','Riego liga (L)','Base granular (m³)','Concreto (m³)','Material granular (m³)','Estado','Observaciones','Fotos (Drive)'];
-  const cel = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const maxMed = Math.max(1, ...lista.map(r => (r.mediciones || []).length));
+  const cabMed = [];
+  for (let i = 1; i <= maxMed; i++) cabMed.push(`Largo ${i} (m)`, `Ancho ${i} (m)`, `Profundidad ${i} (cm)`);
+  const cab = ['Proyecto','Fecha','Medido por','Vereda/sector','Vía','Abscisa','Latitud','Longitud','Pavimento','Tipo de daño','Severidad','N.º de medidas', ...cabMed,'Sobrecorte','Fisuras (m)','Área daño (m²)','Área corte (m²)','Volumen (m³)','Mezcla (t)','Riego liga (L)','Base granular (m³)','Concreto (m³)','Material granular (m³)','Estado','Observaciones','Fotos (Drive)'];
+  const cel = v => { let s = String(v ?? ''); if (/^[=+@]/.test(s) || /^-\D/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const n = (v, d) => fmt(v, d).replace(/\./g, '');
-  const filas = lista.map(r => { const c = r.calc || {}; return [r.proyecto, r.fecha, r.usuario, r.sector, r.via, r.abscisa, r.lat, r.lon, PAV[r.tipoPav], r.tipoDano, r.severidad,
-    r.mediciones.map(m => `${m.l} x ${m.a || '-'} x ${m.p || '-'} cm`).join(' | '), r.aplicaCorte ? 'Sí' : 'No',
+  const dec = v => { const s = String(v ?? '').trim(); return s === '' ? '' : String(num(s)).replace('.', ','); };
+  const filas = lista.map(r => { const c = r.calc || {}; const ms = r.mediciones || []; const med = [];
+    for (let i = 0; i < maxMed; i++) { const m = ms[i] || {}; med.push(dec(m.l), dec(m.a), dec(m.p)); }
+    return [r.proyecto, r.fecha, r.usuario, r.sector, r.via, r.abscisa, dec(r.lat), dec(r.lon), PAV[r.tipoPav], r.tipoDano, r.severidad,
+    ms.length, ...med, r.aplicaCorte ? 'Sí' : 'No',
     n(c.lineal,2), n(c.aDano,2), n(c.aCorte,2), n(c.vol,3), n(c.mezcla,2), n(c.liga,1), n(c.base,3), n(c.concreto,3), n(c.granular,3),
     r.estado, r.obs, (r.fotos || []).map(f => f.url).filter(Boolean).join(' | ')].map(cel).join(';'); });
   descargar(nombreArchivo('csv'), '\ufeff' + [cab.join(';'), ...filas].join('\r\n'), 'text/csv;charset=utf-8');
@@ -599,12 +739,15 @@ function llenarAjustes(){
   $('#aUsuario').value = cfg.usuario; $('#aUrl').value = cfg.url; $('#aClave').value = cfg.clave;
   $('#aCorte').value = cfg.sobrecorte; $('#aDens').value = cfg.densidad; $('#aDesp').value = cfg.desperdicio;
   $('#aLiga').value = cfg.liga; $('#aExp').value = cfg.expansion; $('#aDespC').value = cfg.despConcreto;
+  $('#aSelloCam').checked = !!cfg.selloCamara; $('#aSelloGal').checked = !!cfg.selloGaleria; pintarLogo();
 }
 function leerAjustes(){
   cfg.usuario = $('#aUsuario').value.trim(); cfg.url = $('#aUrl').value.trim(); cfg.clave = $('#aClave').value;
   cfg.sobrecorte = num($('#aCorte').value); cfg.densidad = num($('#aDens').value); cfg.desperdicio = num($('#aDesp').value);
   cfg.liga = num($('#aLiga').value); cfg.expansion = num($('#aExp').value) || 1; cfg.despConcreto = num($('#aDespC').value);
+  cfg.selloCamara = $('#aSelloCam').checked; cfg.selloGaleria = $('#aSelloGal').checked;
 }
+['#aSelloCam','#aSelloGal'].forEach(s => $(s).addEventListener('change', () => { cfg.selloCamara = $('#aSelloCam').checked; cfg.selloGaleria = $('#aSelloGal').checked; guardarCfg(); }));
 $('#btnAjustes').addEventListener('click', () => { leerAjustes(); guardarCfg(); toast('Ajustes guardados.'); });
 $('#btnProbar').addEventListener('click', async () => {
   leerAjustes(); guardarCfg();
@@ -676,6 +819,7 @@ window.addEventListener('online', () => sincronizar(true));
   try { db = await abrirDB(); } catch(e) { toast('Este navegador no permite guardar datos. Use Chrome.', 6000); return; }
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   await recargar();
+  cargarLogo();
   if (navigator.onLine && cfg.url) sincronizar(true);
 })();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
